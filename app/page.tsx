@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { generateRPV, generateRLE, downloadPDF, viewPDF, getStudentDocumentType } from '@/lib/documentGenerator';
 
 interface User {
   id: string;
@@ -60,6 +61,10 @@ export default function Home() {
   const [adminComment, setAdminComment] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [view, setView] = useState<'search' | 'requests'>('search');
+  
+  // Document generation state
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [documentType, setDocumentType] = useState<'RLE' | 'RPV' | null>(null);
 
   // Fetch requests when user logs in or when switching views
   useEffect(() => {
@@ -393,6 +398,32 @@ export default function Home() {
       .join(' ');
   };
 
+  // Document generation handlers
+  const handleGenerateDocument = (type: 'RLE' | 'RPV') => {
+    if (!student) return;
+    setDocumentType(type);
+    setShowDocumentModal(true);
+  };
+
+  const handleDownloadDocument = () => {
+    if (!student || !documentType) return;
+    
+    const doc = documentType === 'RPV' ? generateRPV(student) : generateRLE(student);
+    const filename = `${documentType}_${student.SEAT_NO}_${student.NAME.replace(/\s+/g, '_')}.pdf`;
+    downloadPDF(doc, filename);
+    
+    setSuccessMessage(`✓ ${documentType} document downloaded successfully!`);
+    setShowDocumentModal(false);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const handleViewDocument = () => {
+    if (!student || !documentType) return;
+    
+    const doc = documentType === 'RPV' ? generateRPV(student) : generateRLE(student);
+    viewPDF(doc);
+  };
+
   const renderValue = (value: any) => {
     if (value === null || value === undefined || value === '') {
       return <span className="text-gray-400 italic">N/A</span>;
@@ -604,12 +635,37 @@ export default function Home() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {!isEditing ? (
-                        <button
-                          onClick={handleEdit}
-                          className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
-                        >
-                          ✏️ Edit Marks
-                        </button>
+                        <>
+                          <button
+                            onClick={handleEdit}
+                            className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                          >
+                            ✏️ Edit Marks
+                          </button>
+                          {(() => {
+                            const docType = getStudentDocumentType(student);
+                            if (docType === 'RPV') {
+                              return (
+                                <button
+                                  onClick={() => handleGenerateDocument('RPV')}
+                                  className="bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-purple-50 transition-colors"
+                                >
+                                  📄 Generate RPV
+                                </button>
+                              );
+                            } else if (docType === 'RLE') {
+                              return (
+                                <button
+                                  onClick={() => handleGenerateDocument('RLE')}
+                                  className="bg-white text-green-600 px-6 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors"
+                                >
+                                  📋 Generate RLE
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </>
                       ) : (
                         <>
                           <button
@@ -1042,6 +1098,106 @@ export default function Home() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Document Generation Modal */}
+        {showDocumentModal && documentType && student && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full">
+              <div className="bg-linear-to-r from-purple-600 to-blue-600 p-6 text-white">
+                <h2 className="text-2xl font-bold mb-2">
+                  Generate {documentType} Document
+                </h2>
+                <p className="text-sm">
+                  {documentType === 'RPV' 
+                    ? 'Result Pass Verification Form' 
+                    : 'Result Ledger Entry Form'}
+                </p>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200 font-semibold mb-2">
+                    <span className="text-2xl">👤</span>
+                    <span>Student: {student.NAME}</span>
+                  </div>
+                  <p className="text-sm text-blue-600 dark:text-blue-300">
+                    Seat No: <span className="font-bold">{student.SEAT_NO}</span>
+                  </p>
+                  <p className="text-sm text-blue-600 dark:text-blue-300">
+                    College: <span className="font-bold">{student.COLL_NO}</span>
+                  </p>
+                </div>
+
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                  <h3 className="font-semibold text-gray-800 dark:text-white mb-3">
+                    Document Details:
+                  </h3>
+                  <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                    {documentType === 'RPV' ? (
+                      <>
+                        <li>✓ Student Information</li>
+                        <li>✓ Semester-wise Performance</li>
+                        <li>✓ CGPA & GCGPA</li>
+                        <li>✓ Subject-wise Marks</li>
+                        <li>✓ Signature Section</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>✓ Complete Academic Record</li>
+                        <li>✓ Detailed Subject Breakdown</li>
+                        <li>✓ Theory & Internal Marks</li>
+                        <li>✓ Remarks & Comments</li>
+                        <li>✓ Final Performance Summary</li>
+                        <li>✓ Multi-level Approval Section</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-xl p-4 mb-6">
+                  <div className="flex gap-2">
+                    <span className="text-xl">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
+                        Important Note
+                      </p>
+                      <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                        This document will be generated based on current student data. 
+                        Please verify all information before downloading.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={handleViewDocument}
+                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <span className="text-xl">👁️</span>
+                    View Document
+                  </button>
+                  <button
+                    onClick={handleDownloadDocument}
+                    className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-colors shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <span className="text-xl">⬇️</span>
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDocumentModal(false);
+                      setDocumentType(null);
+                    }}
+                    className="px-8 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
