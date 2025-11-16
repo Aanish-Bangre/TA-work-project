@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ interface DocumentData {
   frem: string;
 }
 
-export default function PreviewDocumentPage() {
+function PreviewDocumentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const seat_no = searchParams.get("seat_no");
@@ -461,5 +461,17 @@ export default function PreviewDocumentPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function PreviewDocumentPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto p-6">
+        <p>Loading document data...</p>
+      </div>
+    }>
+      <PreviewDocumentContent />
+    </Suspense>
   );
 }
